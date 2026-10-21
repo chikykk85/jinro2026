@@ -851,7 +851,7 @@
 
       if (sidInput === RANDOM_LOGIN_CODE && PORTAL_DATA.students.length) {
         const pick = PORTAL_DATA.students[Math.floor(Math.random() * PORTAL_DATA.students.length)];
-        selectStudent(pick.studentId);
+        selectStudent(pick.studentId, { noRemember: true });
         return;
       }
 
@@ -873,7 +873,7 @@
       feedback.classList.remove('hidden');
     }
 
-    function selectStudent(studentId) {
+    function selectStudent(studentId, opts) {
       const st = PORTAL_DATA.students.find(s => s.studentId === String(studentId));
       if (!st) return;
       appState.currentStudent = st;
@@ -884,9 +884,9 @@
       appState.topicSubject = 'all';
       appState.topicKeyword = '';
 
-      try {
-        localStorage.setItem('yb_student_portal_last_sid', st.studentId);
-      } catch (e) {}
+      if (!(opts && opts.noRemember)) {
+        try { localStorage.setItem('yb_student_portal_last_sid', st.studentId); } catch (e) {}
+      }
 
       document.getElementById('loginFeedbackBox').classList.add('hidden');
       document.getElementById('loginView').classList.add('hidden');
@@ -905,6 +905,7 @@
     }
 
     function returnToLogin() {
+      try { localStorage.removeItem('yb_student_portal_last_sid'); } catch (e) {}
       document.getElementById('studentPortalView').classList.add('hidden');
       document.getElementById('loginView').classList.remove('hidden');
       if (appState.currentStudent) {
@@ -1406,8 +1407,7 @@
         </div>
 
         <div class="space-y-4">
-          ${(dayFilter === 'all' || dayFilter === '1') ? buildBusSeatingCardHtml(1, st) : ''}
-          ${(dayFilter === 'all' || dayFilter === '23') ? buildBusSeatingCardHtml(23, st) : ''}
+          ${(scheduleTodayIndex() === 1 ? [1, 23] : [23, 1]).map(k => (dayFilter === 'all' || dayFilter === String(k)) ? buildBusSeatingCardHtml(k, st) : '').join('')}
         </div>
       `;
 
@@ -2343,6 +2343,18 @@
     });
   
     // ---- keep hero hidden outside overview, keep floor plan fitted to screen width ----
+    // ---- 자동 로그인: 이전에 로그인한 학생이면 로그인 화면 없이 바로 입장 ----
+    window.addEventListener('DOMContentLoaded', () => {
+      let sid = null;
+      try { sid = localStorage.getItem('yb_student_portal_last_sid'); } catch (e) {}
+      if (!sid) return;
+      if (PORTAL_DATA.students.some(x => x.studentId === sid)) {
+        selectStudent(sid);
+      } else {
+        try { localStorage.removeItem('yb_student_portal_last_sid'); } catch (e) {}
+      }
+    });
+
     (function wrapRenderers() {
       const _plan = renderHotelFloorPlan;
       renderHotelFloorPlan = function () { _plan.apply(this, arguments); fitFloorPlan(); };
